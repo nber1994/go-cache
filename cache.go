@@ -67,6 +67,37 @@ func (c *cache) Set(k string, x interface{}, d time.Duration) {
 	c.mu.Unlock()
 }
 
+//set if not exist
+func (c *cache) SetNX(k string, x interface{}, d time.Duration) {
+	var e int64
+	if d == DefaultExpiration {
+		d = c.defaultExpiration
+	}
+	if d > 0 {
+		e = time.Now().Add(d).UnixNano()
+	}
+	c.mu.Lock()
+	item, found := c.items[k]
+	//if key exist check it's expiration
+	if found {
+		if item.Expiration <= 0 {
+			c.mu.Unlock()
+			return
+		}
+
+		if time.Now().UnixNano() <= item.Expiration {
+			c.mu.Unlock()
+			return
+		}
+	}
+
+	c.items[k] = Item{
+		Object:     x,
+		Expiration: e,
+	}
+	c.mu.Unlock()
+}
+
 func (c *cache) set(k string, x interface{}, d time.Duration) {
 	var e int64
 	if d == DefaultExpiration {

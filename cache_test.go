@@ -68,6 +68,41 @@ func TestCache(t *testing.T) {
 	}
 }
 
+func TestSetNX(t *testing.T) {
+	tc := New(10*time.Millisecond, 1*time.Millisecond)
+	tc.Set("a", 2, NoExpiration)
+	tc.SetNX("a", 3, NoExpiration)
+	v, found := tc.Get("a")
+	if !found {
+		t.Error("a was not found while geting a")
+	}
+
+	if v.(int) == 3 {
+		t.Error("a should be 2")
+	}
+
+	tc.set("b", 1, 20*time.Millisecond)
+	<-time.After(5 * time.Millisecond)
+	tc.SetNX("b", 2, NoExpiration)
+	v, found = tc.Get("b")
+	if !found {
+		t.Error("b should be exist")
+	}
+	if v.(int) == 2 {
+		t.Error("b should be 1")
+	}
+
+	<-time.After(25 * time.Millisecond)
+	tc.SetNX("b", 3, NoExpiration)
+	v, found = tc.Get("b")
+	if !found {
+		t.Error("b should be exist")
+	}
+	if v.(int) != 3 {
+		t.Error("b should be 3")
+	}
+}
+
 func TestCacheTimes(t *testing.T) {
 	var found bool
 
