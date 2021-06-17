@@ -15,6 +15,9 @@ type Item struct {
 	Expiration int64
 }
 
+//Item construct function
+type ItemConstructor func() interface{}
+
 // Returns true if the item has expired.
 func (item Item) Expired() bool {
 	if item.Expiration == 0 {
@@ -64,6 +67,38 @@ func (c *cache) Set(k string, x interface{}, d time.Duration) {
 	}
 	// TODO: Calls to mu.Unlock are currently not deferred because defer
 	// adds ~200 ns (as of go1.)
+	c.mu.Unlock()
+}
+
+//lazy set if key not exist
+func (c *cache) LSetNX(k string, f ItemConstructor, d time.Duration) {
+	var e int64
+	if d == DefaultExpiration {
+		d = c.defaultExpiration
+	}
+	if d > 0 {
+		e = time.Now().Add(d).UnixNano()
+	}
+	c.mu.Lock()
+	item, found := c.items[k]
+	//if key exist check it's expiration
+	if found {
+		if item.Expiration <= 0 {
+			c.mu.Unlock()
+			return
+		}
+
+		if time.Now().UnixNano() <= item.Expiration {
+			c.mu.Unlock()
+			return
+		}
+	}
+
+	x := f()
+	c.items[k] = Item{
+		Object:     x,
+		Expiration: e,
+	}
 	c.mu.Unlock()
 }
 
